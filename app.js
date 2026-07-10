@@ -875,9 +875,16 @@ function renderRelationshipList() {
       actions.appendChild(editButton);
       actions.appendChild(deleteButton);
     } else {
+      const materializeButton = document.createElement("button");
+      materializeButton.type = "button";
+      materializeButton.className = "small-btn edit";
+      materializeButton.textContent = "Make Manual";
+      materializeButton.addEventListener("click", () => materializeAutoRelationship(relation));
+
       const autoTag = document.createElement("span");
       autoTag.className = "person-meta";
       autoTag.textContent = "auto";
+      actions.appendChild(materializeButton);
       actions.appendChild(autoTag);
     }
 
@@ -886,6 +893,33 @@ function renderRelationshipList() {
     item.appendChild(row);
     relationshipList.appendChild(item);
   }
+}
+
+function materializeAutoRelationship(relation) {
+  const nextRelation = {
+    id: crypto.randomUUID(),
+    type: relation.type,
+    a: relation.a,
+    b: relation.b,
+    customSymbol: relation.customSymbol || "",
+  };
+
+  if (relation.type === "offspring") {
+    nextRelation.parentId = relation.parentId || relation.a;
+    nextRelation.childId = relation.childId || relation.b;
+  }
+
+  if (hasDuplicateRelationship(nextRelation)) {
+    showToast("A manual relationship already exists for that pair.", "warning");
+    return;
+  }
+
+  saveStateForUndo();
+  relationships.push(nextRelation);
+  dedupeRelationshipsInPlace();
+  renderAll();
+  saveToLocalStorage();
+  showToast("Manual relationship created. You can now edit it.", "success");
 }
 
 function startRelationshipEdit(relationshipId) {
