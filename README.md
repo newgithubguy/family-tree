@@ -13,43 +13,68 @@ This app now runs with a shared backend so everyone who opens the hosted URL see
 
 3. Open `http://localhost:8080`.
 
-## Deploy with Dockhand
+## Deployment
 
-- `docker-compose.yml` is for local builds on your machine.
-- For Dockhand or any remote compose importer, use `docker-compose.dockhand.yml` instead.
-- That file pulls prebuilt images from GitHub Container Registry (GHCR), so Dockhand does not need local build context access.
+Use the local compose file for development on your machine, and the Dockhand compose file for hosted deployment.
 
-### Publish images to GHCR
+### Local development
+
+- `docker-compose.yml` builds images from local folders.
+- Use it only on a machine that has this full repository checked out.
+
+### Hosted deployment with Dockhand
+
+- `docker-compose.dockhand.yml` is the hosted deployment file.
+- It pulls prebuilt images from GitHub Container Registry (GHCR).
+- Use this file in Dockhand instead of `docker-compose.yml`.
+
+### Step 1: Publish images to GHCR
 
 1. Push this repository to GitHub.
-2. In GitHub, open the **Actions** tab.
-3. Run the **Publish Docker Images** workflow, or push to `main`.
-4. Confirm these images exist:
+2. Open the **Actions** tab in GitHub.
+3. Run the **Publish Docker Images** workflow, or push a new commit to `main`.
+4. Wait for the workflow to finish successfully.
+5. Confirm these images exist in GitHub Packages:
    - `ghcr.io/newgithubguy/family-tree-web:latest`
    - `ghcr.io/newgithubguy/family-tree-api:latest`
-5. If Dockhand cannot pull them, open the package settings in GitHub and make both container packages public.
+6. If Dockhand cannot pull the images, open each package in GitHub and make it public.
 
-### Use with Dockhand
+### Step 2: Deploy in Dockhand
 
-1. Copy the contents of `docker-compose.dockhand.yml` into Dockhand.
-2. Set `ADMIN_PASSWORD` to a strong value before first public deployment.
-3. For Cloudflare or any public HTTPS deployment, set:
+1. Open `docker-compose.dockhand.yml`.
+2. Copy its contents into Dockhand.
+3. Before deploying, change:
+   - `ADMIN_PASSWORD` to a strong password
+4. Deploy the stack.
+
+### Step 3: Put Cloudflare in front
+
+1. Point your domain or subdomain at the Dockhand-hosted app.
+2. In Cloudflare SSL/TLS settings, use **Full (strict)**.
+3. Enable HTTPS redirection.
+4. Keep `TRUST_PROXY=1`.
+5. For any public internet deployment, keep:
    - `COOKIE_SECURE_MODE=always`
-4. Deploy.
+
+### Deployment notes
+
+- The hosted compose file is intentionally separate so remote platforms do not need access to local build context.
+- User and chart data are stored in the `family-tree-data` volume.
+- Re-deploying containers keeps existing data as long as the volume is preserved.
 
 ## Login and account access
 
-- The app now requires login for all users.
-- On first startup, the API creates a bootstrap admin account from `docker-compose.yml`:
+- The app requires login for all users.
+- On first startup, the API creates a bootstrap admin account from the compose environment:
    - Username: `admin`
    - Password: `change-me-123`
-- Sign in with that admin account, then use the in-app **Admin Console** to create accounts for family members.
+- Sign in with that admin account, then use the in-app **Admin Console** to create and manage accounts.
 - Admin Console account actions:
    - Create account
    - Reset password
    - Disable/enable account
    - Delete account
-- After first use, change `ADMIN_PASSWORD` in `docker-compose.yml` and restart:
+- After first use, change `ADMIN_PASSWORD` in your active deployment compose file and restart:
 
    ```powershell
    docker compose up --build -d
@@ -72,6 +97,12 @@ This app now runs with a shared backend so everyone who opens the hosted URL see
    - `COOKIE_SECURE_MODE=auto` (default): secure cookie when request is HTTPS.
    - Set `COOKIE_SECURE_MODE=always` for public internet deployments.
 - `TRUST_PROXY=1` is enabled so secure detection works correctly behind reverse proxies.
+
+## Files used for deployment
+
+- `docker-compose.yml`: local development and local Docker builds
+- `docker-compose.dockhand.yml`: hosted deployment through Dockhand
+- `.github/workflows/publish-images.yml`: builds and publishes the web and API images to GHCR
 
 ## Stop the app
 

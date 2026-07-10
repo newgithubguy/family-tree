@@ -23,6 +23,8 @@ const peopleList = document.getElementById("people-list");
 const relationshipForm = document.getElementById("relationship-form");
 const personAInput = document.getElementById("person-a");
 const personBInput = document.getElementById("person-b");
+const personALabel = document.querySelector('label[for="person-a"]');
+const personBLabel = document.querySelector('label[for="person-b"]');
 const relationTypeInput = document.getElementById("relation-type");
 const customSymbolInput = document.getElementById("custom-symbol");
 const relationshipList = document.getElementById("relationship-list");
@@ -661,6 +663,8 @@ function wireAuthControls() {
   adminCreateUserForm.addEventListener("submit", (event) => {
     void handleAdminCreateUser(event);
   });
+
+  relationTypeInput.addEventListener("change", updateRelationshipFieldLabels);
 }
 
 // Load auth and app state on page initialization.
@@ -733,6 +737,11 @@ relationshipForm.addEventListener("submit", (event) => {
     b: personBId,
     customSymbol,
   };
+
+  if (type === "offspring") {
+    nextRelation.parentId = personAId;
+    nextRelation.childId = personBId;
+  }
 
   if (hasDuplicateRelationship(nextRelation)) {
     showToast("That relationship already exists.", "warning");
@@ -829,6 +838,22 @@ function renderRelationshipOptions() {
   }
 
   relationshipForm.querySelector("button").disabled = people.length < 2;
+  updateRelationshipFieldLabels();
+}
+
+function updateRelationshipFieldLabels() {
+  if (!personALabel || !personBLabel) {
+    return;
+  }
+
+  if (relationTypeInput.value === "offspring") {
+    personALabel.textContent = "Parent";
+    personBLabel.textContent = "Child";
+    return;
+  }
+
+  personALabel.textContent = "Person A";
+  personBLabel.textContent = "Person B";
 }
 
 function renderChart() {
@@ -867,20 +892,18 @@ function renderChart() {
         continue;
       }
 
-      const relA = getPersonById(rel.a);
-      const relB = getPersonById(rel.b);
-      if (!relA || !relB) {
+      const endpoints = getOffspringEndpoints(rel);
+      if (!endpoints) {
         continue;
       }
 
-      const child = relA.y < relB.y ? relB : relA;
-      const childParents = getParentsOfChild(child.id);
+      const childParents = getParentsOfChild(endpoints.child.id);
       if (childParents.length === 0) {
         continue;
       }
 
       if (getParentGroupSignature(childParents) === parentSignature) {
-        childIds.add(child.id);
+        childIds.add(endpoints.child.id);
       }
     }
 
@@ -899,7 +922,12 @@ function renderChart() {
     }
 
     if (relation.type === "offspring") {
-      const child = a.y < b.y ? b : a;
+      const endpoints = getOffspringEndpoints(relation);
+      if (!endpoints) {
+        continue;
+      }
+
+      const child = endpoints.child;
       const parentsOfChild = getParentsOfChild(child.id);
       if (parentsOfChild.length === 0) {
         continue;
@@ -941,7 +969,8 @@ function renderChart() {
       const commonParents = getCommonParentsOfChildren(a.id, b.id);
 
       if (commonParents.length > 0) {
-        const groupSignature = `${relation.type}:${getParentGroupSignature(commonParents)}`;
+        const commonParentSignature = getParentGroupSignature(commonParents);
+        const groupSignature = `${relation.type}:${commonParentSignature}`;
         if (renderedSiblingGroups.has(groupSignature)) {
           continue;
         }
@@ -963,7 +992,7 @@ function renderChart() {
             continue;
           }
 
-          if (getParentGroupSignature(relCommonParents) === groupSignature) {
+          if (getParentGroupSignature(relCommonParents) === commonParentSignature) {
             siblingIds.add(relA.id);
             siblingIds.add(relB.id);
           }
@@ -1271,6 +1300,46 @@ function getPersonById(id) {
   return people.find((person) => person.id === id) || null;
 }
 
+function getOffspringEndpoints(relation) {
+  if (!relation || relation.type !== "offspring") {
+    return null;
+  }
+
+  const parent = getPersonById(relation.parentId || relation.a);
+  const child = getPersonById(relation.childId || relation.b);
+  if (!parent || !child || parent.id === child.id) {
+    return null;
+  }
+
+  return { parent, child };
+}
+
+function normalizeOffspringRelationInPlace(relation) {
+  if (!relation || relation.type !== "offspring") {
+    return;
+  }
+
+  const personA = getPersonById(relation.a);
+  const personB = getPersonById(relation.b);
+  if (!personA || !personB || personA.id === personB.id) {
+    return;
+  }
+
+  if (relation.parentId && relation.childId && relation.parentId !== relation.childId) {
+    relation.a = relation.parentId;
+    relation.b = relation.childId;
+    return;
+  }
+
+  // Migrate older charts once by current layout, then keep the stored direction stable.
+  const inferredParent = personA.y <= personB.y ? personA : personB;
+  const inferredChild = inferredParent.id === personA.id ? personB : personA;
+  relation.parentId = inferredParent.id;
+  relation.childId = inferredChild.id;
+  relation.a = inferredParent.id;
+  relation.b = inferredChild.id;
+}
+
 function getPairKey(aId, bId) {
   return aId < bId ? `${aId}|${bId}` : `${bId}|${aId}`;
 }
@@ -1282,16 +1351,13 @@ function getParentsOfChildFromOffspring(childId) {
       continue;
     }
 
-    const relA = getPersonById(rel.a);
-    const relB = getPersonById(rel.b);
-    if (!relA || !relB) {
+    const endpoints = getOffspringEndpoints(rel);
+    if (!endpoints) {
       continue;
     }
 
-    const parent = relA.y < relB.y ? relA : relB;
-    const child = relA.y < relB.y ? relB : relA;
-    if (child.id === childId && !parents.some((p) => p.id === parent.id)) {
-      parents.push(parent);
+    if (endpoints.child.id === childId && !parents.some((p) => p.id === endpoints.parent.id)) {
+      parents.push(endpoints.parent);
     }
   }
   return parents;
@@ -1310,13 +1376,11 @@ function getAutoHalfSiblingRelations() {
     if (rel.type !== "offspring") {
       continue;
     }
-    const relA = getPersonById(rel.a);
-    const relB = getPersonById(rel.b);
-    if (!relA || !relB) {
+    const endpoints = getOffspringEndpoints(rel);
+    if (!endpoints) {
       continue;
     }
-    const child = relA.y < relB.y ? relB : relA;
-    offspringChildren.add(child.id);
+    offspringChildren.add(endpoints.child.id);
   }
 
   const childIds = [...offspringChildren];
@@ -1416,6 +1480,14 @@ function dedupeRelationshipsInPlace() {
       continue;
     }
 
+    if (relation.type === "offspring") {
+      normalizeOffspringRelationInPlace(relation);
+      if (!relation.parentId || !relation.childId || !knownPersonIds.has(relation.parentId) || !knownPersonIds.has(relation.childId)) {
+        relationships.splice(i, 1);
+        continue;
+      }
+    }
+
     if (relation.type === "custom") {
       relation.customSymbol = (relation.customSymbol || "").trim();
       if (!relation.customSymbol) {
@@ -1506,13 +1578,36 @@ function sanitizeImportedRelationships(rawRelationships, peoplePool) {
       continue;
     }
 
-    normalized.push({
+    const nextRelation = {
       id: typeof item.id === "string" && item.id.trim() ? item.id.trim() : crypto.randomUUID(),
       type,
       a: item.a,
       b: item.b,
       customSymbol,
-    });
+    };
+
+    if (type === "offspring") {
+      const hasExplicitDirection = validIds.has(item.parentId) && validIds.has(item.childId) && item.parentId !== item.childId;
+      if (hasExplicitDirection) {
+        nextRelation.parentId = item.parentId;
+        nextRelation.childId = item.childId;
+        nextRelation.a = item.parentId;
+        nextRelation.b = item.childId;
+      } else {
+        const personA = peoplePool.find((person) => person.id === item.a);
+        const personB = peoplePool.find((person) => person.id === item.b);
+        if (personA && personB) {
+          const inferredParent = personA.y <= personB.y ? personA : personB;
+          const inferredChild = inferredParent.id === personA.id ? personB : personA;
+          nextRelation.parentId = inferredParent.id;
+          nextRelation.childId = inferredChild.id;
+          nextRelation.a = inferredParent.id;
+          nextRelation.b = inferredChild.id;
+        }
+      }
+    }
+
+    normalized.push(nextRelation);
   }
 
   const deduped = [];
