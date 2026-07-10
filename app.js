@@ -875,16 +875,23 @@ function renderRelationshipList() {
       actions.appendChild(editButton);
       actions.appendChild(deleteButton);
     } else {
-      const materializeButton = document.createElement("button");
-      materializeButton.type = "button";
-      materializeButton.className = "small-btn edit";
-      materializeButton.textContent = "Make Manual";
-      materializeButton.addEventListener("click", () => materializeAutoRelationship(relation));
+      const editButton = document.createElement("button");
+      editButton.type = "button";
+      editButton.className = "small-btn edit";
+      editButton.textContent = "Edit";
+      editButton.addEventListener("click", () => {
+        const manualRelationId = materializeAutoRelationship(relation, false);
+        if (!manualRelationId) {
+          return;
+        }
+        startRelationshipEdit(manualRelationId);
+        showToast("Auto relationship converted to manual for editing.", "info");
+      });
 
       const autoTag = document.createElement("span");
       autoTag.className = "person-meta";
       autoTag.textContent = "auto";
-      actions.appendChild(materializeButton);
+      actions.appendChild(editButton);
       actions.appendChild(autoTag);
     }
 
@@ -895,7 +902,13 @@ function renderRelationshipList() {
   }
 }
 
-function materializeAutoRelationship(relation) {
+function materializeAutoRelationship(relation, showToastMessage = true) {
+  const relationKey = getRelationshipKey(relation);
+  const existingManual = relationships.find((item) => getRelationshipKey(item) === relationKey);
+  if (existingManual) {
+    return existingManual.id;
+  }
+
   const nextRelation = {
     id: crypto.randomUUID(),
     type: relation.type,
@@ -909,17 +922,16 @@ function materializeAutoRelationship(relation) {
     nextRelation.childId = relation.childId || relation.b;
   }
 
-  if (hasDuplicateRelationship(nextRelation)) {
-    showToast("A manual relationship already exists for that pair.", "warning");
-    return;
-  }
-
   saveStateForUndo();
   relationships.push(nextRelation);
   dedupeRelationshipsInPlace();
   renderAll();
   saveToLocalStorage();
-  showToast("Manual relationship created. You can now edit it.", "success");
+  if (showToastMessage) {
+    showToast("Manual relationship created. You can now edit it.", "success");
+  }
+
+  return nextRelation.id;
 }
 
 function startRelationshipEdit(relationshipId) {
