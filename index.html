@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Free-Flow Family Chart</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Libre+Baskerville:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main id="auth-shell" class="auth-shell">
+      <section class="auth-card panel">
+        <p class="kicker">Secure Access</p>
+        <h1>Sign In to Family Tree</h1>
+        <p>Use the account credentials provided by your administrator.</p>
+        <form id="login-form" class="form auth-form">
+          <label for="login-username">Username</label>
+          <input id="login-username" autocomplete="username" required />
+
+          <label for="login-password">Password</label>
+          <input id="login-password" type="password" autocomplete="current-password" required />
+
+          <button type="submit">Sign In</button>
+        </form>
+      </section>
+    </main>
+
+    <main id="app-shell" class="shell hidden">
+      <header class="hero">
+        <div class="hero-meta">
+          <p class="kicker">Welcome</p>
+          <div class="session-meta">
+            <span id="session-user" class="session-user"></span>
+            <button id="logout-btn" type="button" class="small-btn delete">Logout</button>
+          </div>
+        </div>
+        <h1>Build Your Family Story, Together</h1>
+        <p>
+          Add loved ones, drag them into place, and connect relationships with clear symbols as your tree grows.
+        </p>
+      </header>
+
+      <section class="panel grid-two">
+        <div class="panel-block">
+          <h2>Add Person</h2>
+          <form id="person-form" class="form">
+            <label for="person-name">Name</label>
+            <input id="person-name" required />
+
+            <label for="person-sex">Sex</label>
+            <select id="person-sex" required>
+              <option value="male">Male (square)</option>
+              <option value="female">Female (circle)</option>
+            </select>
+
+            <button type="submit">Add Person</button>
+          </form>
+
+          <ul id="people-list" class="people-list"></ul>
+        </div>
+
+        <div class="panel-block">
+          <h2>Add Relationship</h2>
+          <form id="relationship-form" class="form">
+            <label for="person-a">Person A</label>
+            <select id="person-a" required></select>
+
+            <label for="relation-type">Type</label>
+            <select id="relation-type" required>
+              <option value="married">Married (+)</option>
+              <option value="divorced">Divorced (-)</option>
+              <option value="siblings">Siblings (↔)</option>
+              <option value="half-siblings">Half-siblings (≋)</option>
+              <option value="cousins">Cousins (⋈)</option>
+              <option value="offspring">Offspring (↑↓)</option>
+              <option value="custom">Custom symbol</option>
+            </select>
+
+            <label for="custom-symbol">Custom symbol (for custom type)</label>
+            <input id="custom-symbol" maxlength="4" placeholder="e.g. →, ⇄, ♥" />
+
+            <label for="person-b">Person B</label>
+            <select id="person-b" required></select>
+
+            <button type="submit">Add Relationship</button>
+          </form>
+
+          <ul id="relationship-list" class="relationship-list"></ul>
+        </div>
+      </section>
+
+      <section id="admin-panel" class="panel hidden">
+        <h2>Admin Console</h2>
+        <p class="help">Create accounts, reset passwords, and disable or delete access. Usernames must be unique.</p>
+        <div class="grid-two">
+          <div class="panel-block">
+            <h3>Create Account</h3>
+            <form id="admin-create-user-form" class="form">
+              <label for="admin-new-username">Username</label>
+              <input id="admin-new-username" required />
+
+              <label for="admin-new-password">Password</label>
+              <input id="admin-new-password" type="password" minlength="8" required />
+
+              <label for="admin-new-is-admin" class="checkbox-row">
+                <input id="admin-new-is-admin" type="checkbox" />
+                Grant admin access
+              </label>
+
+              <button type="submit">Create Account</button>
+            </form>
+          </div>
+
+          <div class="panel-block">
+            <h3>Accounts</h3>
+            <ul id="admin-users-list" class="people-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Chart Canvas</h2>
+        <p class="help">Drag nodes to arrange your layout. Ctrl/Shift+click to multi-select, drag one selected node to move the group, Ctrl/Cmd+Z/Y for undo/redo, Ctrl/Cmd+A to select all, Delete to remove selected.</p>
+        <div class="chart-tools">
+          <button type="button" id="zoom-out" class="tool-btn">-</button>
+          <button type="button" id="zoom-fit" class="tool-btn">Fit</button>
+          <button type="button" id="zoom-in" class="tool-btn">+</button>
+          <span id="zoom-indicator" class="zoom-indicator">100%</span>
+          <button type="button" id="reset-layout" class="tool-btn">Reset Layout</button>
+          <button type="button" id="export-json" class="tool-btn">Export JSON</button>
+          <button type="button" id="import-json" class="tool-btn">Import JSON</button>
+          <button type="button" id="reset-all" class="tool-btn danger">Reset All</button>
+          <input id="import-file" type="file" accept="application/json,.json" hidden />
+        </div>
+        <div class="legend" aria-label="Relationship symbol legend">
+          <span class="legend-item"><strong>+</strong> Married</span>
+          <span class="legend-item"><strong>-</strong> Divorced</span>
+          <span class="legend-item"><strong>↔</strong> Siblings</span>
+          <span class="legend-item"><strong>≋</strong> Half-siblings</span>
+          <span class="legend-item"><strong>⋈</strong> Cousins</span>
+          <span class="legend-item"><strong>↑↓</strong> Offspring</span>
+          <span class="legend-item"><strong>*</strong> Custom</span>
+        </div>
+        <div class="canvas-wrap" id="canvas-wrap">
+          <svg id="pedigree-canvas" class="pedigree-canvas" aria-label="Pedigree chart" role="img"></svg>
+        </div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,32 @@
+services:
+  family-tree:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: family-tree:latest
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=change-me-123
+      - TRUST_PROXY=1
+      - COOKIE_SECURE_MODE=auto
+      - SESSION_SAME_SITE=Lax
+      - LOGIN_WINDOW_MS=600000
+      - LOGIN_MAX_ATTEMPTS=8
+      - LOGIN_BLOCK_MS=900000
+    image: family-tree-api:latest
+    volumes:
+      - family-tree-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  family-tree-data:

@@ -1,0 +1,15 @@
+{
+  "name": "family-tree-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shared state API for the family tree app",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.10.0",
+    "express": "^4.21.2"
+  }
+}
