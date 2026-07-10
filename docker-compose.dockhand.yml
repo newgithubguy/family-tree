@@ -1,0 +1,26 @@
+services:
+  family-tree:
+    image: ghcr.io/newgithubguy/family-tree-web:latest
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+  api:
+    image: ghcr.io/newgithubguy/family-tree-api:latest
+    environment:
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=change-me-123
+      - TRUST_PROXY=1
+      - COOKIE_SECURE_MODE=always
+      - SESSION_SAME_SITE=Lax
+      - LOGIN_WINDOW_MS=600000
+      - LOGIN_MAX_ATTEMPTS=8
+      - LOGIN_BLOCK_MS=900000
+    volumes:
+      - family-tree-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  family-tree-data:

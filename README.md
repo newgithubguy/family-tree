@@ -13,6 +13,30 @@ This app now runs with a shared backend so everyone who opens the hosted URL see
 
 3. Open `http://localhost:8080`.
 
+## Deploy with Dockhand
+
+- `docker-compose.yml` is for local builds on your machine.
+- For Dockhand or any remote compose importer, use `docker-compose.dockhand.yml` instead.
+- That file pulls prebuilt images from GitHub Container Registry (GHCR), so Dockhand does not need local build context access.
+
+### Publish images to GHCR
+
+1. Push this repository to GitHub.
+2. In GitHub, open the **Actions** tab.
+3. Run the **Publish Docker Images** workflow, or push to `main`.
+4. Confirm these images exist:
+   - `ghcr.io/newgithubguy/family-tree-web:latest`
+   - `ghcr.io/newgithubguy/family-tree-api:latest`
+5. If Dockhand cannot pull them, open the package settings in GitHub and make both container packages public.
+
+### Use with Dockhand
+
+1. Copy the contents of `docker-compose.dockhand.yml` into Dockhand.
+2. Set `ADMIN_PASSWORD` to a strong value before first public deployment.
+3. For Cloudflare or any public HTTPS deployment, set:
+   - `COOKIE_SECURE_MODE=always`
+4. Deploy.
+
 ## Login and account access
 
 - The app now requires login for all users.
