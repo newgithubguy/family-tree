@@ -969,23 +969,35 @@ function renderChart() {
 
       const parentAnchorX = parentsOfChild.reduce((sum, parent) => sum + parent.x, 0) / parentsOfChild.length;
       const parentAnchorY = parentsOfChild.reduce((sum, parent) => sum + parent.y, 0) / parentsOfChild.length;
+      const parentBridgeLeftX = Math.min(...parentsOfChild.map((parent) => parent.x));
+      const parentBridgeRightX = Math.max(...parentsOfChild.map((parent) => parent.x));
+      const parentBridgeY = parentAnchorY;
+      const branchAnchorX = parentsOfChild.length >= 2 ? (parentBridgeLeftX + parentBridgeRightX) / 2 : parentAnchorX;
+      const branchAnchorY = parentBridgeY;
+
+      if (parentsOfChild.length >= 2) {
+        drawLine(parentBridgeLeftX, parentBridgeY, parentBridgeRightX, parentBridgeY, getRelationLineClass(relation));
+        for (const parent of parentsOfChild) {
+          drawLine(parent.x, parent.y, parent.x, parentBridgeY, getRelationLineClass(relation));
+        }
+      }
 
       if (children.length === 1) {
         const onlyChild = children[0];
-        drawLine(parentAnchorX, parentAnchorY, onlyChild.x, onlyChild.y, getRelationLineClass(relation));
-        drawRelationSymbol((parentAnchorX + onlyChild.x) / 2, (parentAnchorY + onlyChild.y) / 2 - 8, getRelationSymbol(relation), relation, placedRelationSymbols, labelAvoidPoints, nodeAvoidPoints);
+        drawLine(branchAnchorX, branchAnchorY, onlyChild.x, onlyChild.y, getRelationLineClass(relation));
+        drawRelationSymbol((branchAnchorX + onlyChild.x) / 2, (branchAnchorY + onlyChild.y) / 2 - 8, getRelationSymbol(relation), relation, placedRelationSymbols, labelAvoidPoints, nodeAvoidPoints);
       } else {
         const offspringBarY = Math.min(...children.map((groupChild) => groupChild.y)) - 38;
-        const leftX = Math.min(...children.map((groupChild) => groupChild.x), parentAnchorX);
-        const rightX = Math.max(...children.map((groupChild) => groupChild.x), parentAnchorX);
+        const leftX = Math.min(...children.map((groupChild) => groupChild.x), branchAnchorX);
+        const rightX = Math.max(...children.map((groupChild) => groupChild.x), branchAnchorX);
 
         // One shared offspring connector stem for all children with this parent set.
-        drawLine(parentAnchorX, parentAnchorY, parentAnchorX, offspringBarY, getRelationLineClass(relation));
+        drawLine(branchAnchorX, branchAnchorY, branchAnchorX, offspringBarY, getRelationLineClass(relation));
         drawLine(leftX, offspringBarY, rightX, offspringBarY, getRelationLineClass(relation));
         for (const groupChild of children) {
           drawLine(groupChild.x, groupChild.y, groupChild.x, offspringBarY, getRelationLineClass(relation));
         }
-        drawRelationSymbol(parentAnchorX, (parentAnchorY + offspringBarY) / 2 - 8, getRelationSymbol(relation), relation, placedRelationSymbols, labelAvoidPoints, nodeAvoidPoints);
+        drawRelationSymbol(branchAnchorX, (branchAnchorY + offspringBarY) / 2 - 8, getRelationSymbol(relation), relation, placedRelationSymbols, labelAvoidPoints, nodeAvoidPoints);
       }
 
       renderedOffspringGroups.add(parentSignature);
@@ -1000,7 +1012,7 @@ function renderChart() {
         }
 
         const siblingIds = new Set([a.id, b.id]);
-        for (const rel of relationships) {
+        for (const rel of visibleRelations) {
           if (rel.type !== relation.type) {
             continue;
           }
@@ -1028,10 +1040,20 @@ function renderChart() {
 
         if (siblings.length >= 2) {
           const siblingBarY = Math.min(...siblings.map((sibling) => sibling.y)) - 38;
-          const anchorX = commonParents.reduce((sum, parent) => sum + parent.x, 0) / commonParents.length;
-          const anchorY = commonParents.reduce((sum, parent) => sum + parent.y, 0) / commonParents.length;
+          const parentBridgeLeftX = Math.min(...commonParents.map((parent) => parent.x));
+          const parentBridgeRightX = Math.max(...commonParents.map((parent) => parent.x));
+          const parentBridgeY = commonParents.reduce((sum, parent) => sum + parent.y, 0) / commonParents.length;
+          const anchorX = commonParents.length >= 2 ? (parentBridgeLeftX + parentBridgeRightX) / 2 : commonParents[0].x;
+          const anchorY = parentBridgeY;
           const leftX = Math.min(...siblings.map((sibling) => sibling.x), anchorX);
           const rightX = Math.max(...siblings.map((sibling) => sibling.x), anchorX);
+
+          if (commonParents.length >= 2) {
+            drawLine(parentBridgeLeftX, parentBridgeY, parentBridgeRightX, parentBridgeY, getRelationLineClass(relation));
+            for (const parent of commonParents) {
+              drawLine(parent.x, parent.y, parent.x, parentBridgeY, getRelationLineClass(relation));
+            }
+          }
 
           // Draw one shared sibling bar for the whole sibling group.
           for (const sibling of siblings) {
