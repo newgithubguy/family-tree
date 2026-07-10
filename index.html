@@ -81,13 +81,17 @@
               <option value="custom">Custom symbol</option>
             </select>
 
+            <p id="relationship-hint" class="form-hint" aria-live="polite">
+              Choose two people and a relationship type.
+            </p>
+
             <label for="custom-symbol">Custom symbol (for custom type)</label>
             <input id="custom-symbol" maxlength="4" placeholder="e.g. →, ⇄, ♥" />
 
             <label for="person-b">Person B</label>
             <select id="person-b" required></select>
 
-            <button type="submit">Add Relationship</button>
+            <button id="relationship-submit" type="submit">Add Relationship</button>
           </form>
 
           <ul id="relationship-list" class="relationship-list"></ul>

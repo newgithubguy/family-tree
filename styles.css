@@ -130,6 +130,22 @@ p {
   gap: 0.55rem;
 }
 
+.form-hint {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--ink-muted);
+  background: rgba(219, 232, 223, 0.48);
+  border: 1px solid rgba(60, 93, 84, 0.16);
+  border-radius: 0.58rem;
+  padding: 0.5rem 0.62rem;
+}
+
+.form-hint.offspring {
+  color: #7d4d12;
+  background: rgba(235, 215, 184, 0.5);
+  border-color: rgba(182, 122, 45, 0.28);
+}
+
 .checkbox-row {
   display: inline-flex;
   align-items: center;

@@ -26,6 +26,9 @@ const personBInput = document.getElementById("person-b");
 const personALabel = document.querySelector('label[for="person-a"]');
 const personBLabel = document.querySelector('label[for="person-b"]');
 const relationTypeInput = document.getElementById("relation-type");
+const relationshipHint = document.getElementById("relationship-hint");
+const relationshipSubmitButton = document.getElementById("relationship-submit");
+const customSymbolLabel = document.querySelector('label[for="custom-symbol"]');
 const customSymbolInput = document.getElementById("custom-symbol");
 const relationshipList = document.getElementById("relationship-list");
 const exportJsonButton = document.getElementById("export-json");
@@ -842,18 +845,39 @@ function renderRelationshipOptions() {
 }
 
 function updateRelationshipFieldLabels() {
-  if (!personALabel || !personBLabel) {
+  if (!personALabel || !personBLabel || !relationshipHint || !relationshipSubmitButton || !customSymbolLabel || !customSymbolInput) {
     return;
   }
+
+  relationshipHint.classList.remove("offspring");
 
   if (relationTypeInput.value === "offspring") {
     personALabel.textContent = "Parent";
     personBLabel.textContent = "Child";
+    relationshipHint.textContent = "Direction matters: choose the parent first and the child second so family connectors stay grouped correctly.";
+    relationshipHint.classList.add("offspring");
+    relationshipSubmitButton.textContent = "Add Parent -> Child Link";
+    customSymbolLabel.hidden = true;
+    customSymbolInput.hidden = true;
+    return;
+  }
+
+  if (relationTypeInput.value === "custom") {
+    personALabel.textContent = "Person A";
+    personBLabel.textContent = "Person B";
+    relationshipHint.textContent = "Choose two people, then enter the symbol you want displayed between them.";
+    relationshipSubmitButton.textContent = "Add Custom Relationship";
+    customSymbolLabel.hidden = false;
+    customSymbolInput.hidden = false;
     return;
   }
 
   personALabel.textContent = "Person A";
   personBLabel.textContent = "Person B";
+  relationshipHint.textContent = "Choose two people and a relationship type.";
+  relationshipSubmitButton.textContent = "Add Relationship";
+  customSymbolLabel.hidden = true;
+  customSymbolInput.hidden = true;
 }
 
 function renderChart() {
@@ -952,8 +976,8 @@ function renderChart() {
         drawRelationSymbol((parentAnchorX + onlyChild.x) / 2, (parentAnchorY + onlyChild.y) / 2 - 8, getRelationSymbol(relation), relation, placedRelationSymbols, labelAvoidPoints, nodeAvoidPoints);
       } else {
         const offspringBarY = Math.min(...children.map((groupChild) => groupChild.y)) - 38;
-        const leftX = Math.min(...children.map((groupChild) => groupChild.x));
-        const rightX = Math.max(...children.map((groupChild) => groupChild.x));
+        const leftX = Math.min(...children.map((groupChild) => groupChild.x), parentAnchorX);
+        const rightX = Math.max(...children.map((groupChild) => groupChild.x), parentAnchorX);
 
         // One shared offspring connector stem for all children with this parent set.
         drawLine(parentAnchorX, parentAnchorY, parentAnchorX, offspringBarY, getRelationLineClass(relation));
@@ -1004,8 +1028,10 @@ function renderChart() {
 
         if (siblings.length >= 2) {
           const siblingBarY = Math.min(...siblings.map((sibling) => sibling.y)) - 38;
-          const leftX = Math.min(...siblings.map((sibling) => sibling.x));
-          const rightX = Math.max(...siblings.map((sibling) => sibling.x));
+          const anchorX = commonParents.reduce((sum, parent) => sum + parent.x, 0) / commonParents.length;
+          const anchorY = commonParents.reduce((sum, parent) => sum + parent.y, 0) / commonParents.length;
+          const leftX = Math.min(...siblings.map((sibling) => sibling.x), anchorX);
+          const rightX = Math.max(...siblings.map((sibling) => sibling.x), anchorX);
 
           // Draw one shared sibling bar for the whole sibling group.
           for (const sibling of siblings) {
@@ -1013,8 +1039,6 @@ function renderChart() {
           }
           drawLine(leftX, siblingBarY, rightX, siblingBarY, getRelationLineClass(relation));
 
-          const anchorX = commonParents.reduce((sum, parent) => sum + parent.x, 0) / commonParents.length;
-          const anchorY = commonParents.reduce((sum, parent) => sum + parent.y, 0) / commonParents.length;
           drawLine(anchorX, anchorY, anchorX, siblingBarY, getRelationLineClass(relation));
 
           drawRelationSymbol((leftX + rightX) / 2, siblingBarY - 10, getRelationSymbol(relation), relation, placedRelationSymbols, labelAvoidPoints, nodeAvoidPoints);
