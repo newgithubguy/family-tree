@@ -28,6 +28,7 @@ const personBLabel = document.querySelector('label[for="person-b"]');
 const relationTypeInput = document.getElementById("relation-type");
 const relationshipHint = document.getElementById("relationship-hint");
 const relationshipSubmitButton = document.getElementById("relationship-submit");
+const relationshipCancelButton = document.getElementById("relationship-cancel");
 const customSymbolLabel = document.querySelector('label[for="custom-symbol"]');
 const customSymbolInput = document.getElementById("custom-symbol");
 const relationshipList = document.getElementById("relationship-list");
@@ -36,6 +37,7 @@ const importJsonButton = document.getElementById("import-json");
 const importFileInput = document.getElementById("import-file");
 const resetLayoutButton = document.getElementById("reset-layout");
 const resetAllButton = document.getElementById("reset-all");
+const selectAllButton = document.getElementById("select-all");
 const zoomOutButton = document.getElementById("zoom-out");
 const zoomFitButton = document.getElementById("zoom-fit");
 const zoomInButton = document.getElementById("zoom-in");
@@ -85,6 +87,7 @@ let remotePollTimer = null;
 let remoteErrorShown = false;
 let appInitialized = false;
 let currentUser = null;
+let relationshipEditingId = null;
 
 function isUnauthorizedResponse(response) {
   return response.status === 401 || response.status === 403;
@@ -667,6 +670,10 @@ function wireAuthControls() {
     void handleAdminCreateUser(event);
   });
 
+  relationshipCancelButton.addEventListener("click", () => {
+    resetRelationshipFormState();
+  });
+
   relationTypeInput.addEventListener("change", updateRelationshipFieldLabels);
 }
 
@@ -746,19 +753,43 @@ relationshipForm.addEventListener("submit", (event) => {
     nextRelation.childId = personBId;
   }
 
-  if (hasDuplicateRelationship(nextRelation)) {
+  if (hasDuplicateRelationship(nextRelation, relationshipEditingId)) {
     showToast("That relationship already exists.", "warning");
     return;
   }
 
   saveStateForUndo();
 
-  relationships.push(nextRelation);
+  if (relationshipEditingId) {
+    const existing = relationships.find((relation) => relation.id === relationshipEditingId);
+    if (!existing) {
+      showToast("That relationship no longer exists.", "warning");
+      relationshipEditingId = null;
+      updateRelationshipFieldLabels();
+      return;
+    }
+
+    existing.type = nextRelation.type;
+    existing.a = nextRelation.a;
+    existing.b = nextRelation.b;
+    existing.customSymbol = nextRelation.customSymbol;
+    if (nextRelation.type === "offspring") {
+      existing.parentId = nextRelation.parentId;
+      existing.childId = nextRelation.childId;
+    } else {
+      delete existing.parentId;
+      delete existing.childId;
+    }
+  } else {
+    relationships.push(nextRelation);
+  }
+
   dedupeRelationshipsInPlace();
 
-  customSymbolInput.value = "";
+  resetRelationshipFormState();
   renderAll();
   saveToLocalStorage();
+  showToast(relationshipEditingId ? "Relationship updated." : "Relationship added.", "success");
 });
 
 function renderAll() {
@@ -808,6 +839,7 @@ function renderRelationshipList() {
   relationshipList.innerHTML = "";
 
   const visibleRelations = [...relationships, ...getAutoHalfSiblingRelations()];
+  const editableIds = new Set(relationships.map((relation) => relation.id));
 
   for (const relation of visibleRelations) {
     const a = getPersonById(relation.a);
@@ -817,9 +849,106 @@ function renderRelationshipList() {
     }
 
     const item = document.createElement("li");
-    item.textContent = `${a.name} ${getRelationSymbol(relation)} ${b.name}`;
+    const row = document.createElement("div");
+    row.className = "person-item";
+
+    const text = document.createElement("span");
+    text.textContent = `${a.name} ${getRelationSymbol(relation)} ${b.name}`;
+
+    const actions = document.createElement("div");
+    actions.className = "person-actions";
+
+    const editable = editableIds.has(relation.id);
+    if (editable) {
+      const editButton = document.createElement("button");
+      editButton.type = "button";
+      editButton.className = "small-btn edit";
+      editButton.textContent = "Edit";
+      editButton.addEventListener("click", () => startRelationshipEdit(relation.id));
+
+      const deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "small-btn delete";
+      deleteButton.textContent = "Delete";
+      deleteButton.addEventListener("click", () => deleteRelationship(relation.id));
+
+      actions.appendChild(editButton);
+      actions.appendChild(deleteButton);
+    } else {
+      const autoTag = document.createElement("span");
+      autoTag.className = "person-meta";
+      autoTag.textContent = "auto";
+      actions.appendChild(autoTag);
+    }
+
+    row.appendChild(text);
+    row.appendChild(actions);
+    item.appendChild(row);
     relationshipList.appendChild(item);
   }
+}
+
+function startRelationshipEdit(relationshipId) {
+  const relation = relationships.find((item) => item.id === relationshipId);
+  if (!relation) {
+    showToast("Relationship not found.", "warning");
+    return;
+  }
+
+  relationshipEditingId = relationshipId;
+  relationTypeInput.value = relation.type;
+  if (relation.type === "offspring") {
+    personAInput.value = relation.parentId || relation.a;
+    personBInput.value = relation.childId || relation.b;
+  } else {
+    personAInput.value = relation.a;
+    personBInput.value = relation.b;
+  }
+  customSymbolInput.value = relation.customSymbol || "";
+  updateRelationshipFieldLabels();
+  relationTypeInput.focus();
+}
+
+function resetRelationshipFormState() {
+  relationshipEditingId = null;
+  customSymbolInput.value = "";
+  relationshipForm.reset();
+  if (personAInput.options.length > 0) {
+    personAInput.selectedIndex = 0;
+  }
+  if (personBInput.options.length > 0) {
+    personBInput.selectedIndex = 0;
+  }
+  updateRelationshipFieldLabels();
+}
+
+function deleteRelationship(relationshipId) {
+  const relation = relationships.find((item) => item.id === relationshipId);
+  if (!relation) {
+    return;
+  }
+
+  const personA = getPersonById(relation.a);
+  const personB = getPersonById(relation.b);
+  const labelA = personA ? personA.name : "Unknown";
+  const labelB = personB ? personB.name : "Unknown";
+  const ok = confirm(`Delete relationship ${labelA} ${getRelationSymbol(relation)} ${labelB}?`);
+  if (!ok) {
+    return;
+  }
+
+  saveStateForUndo();
+  const index = relationships.findIndex((item) => item.id === relationshipId);
+  if (index >= 0) {
+    relationships.splice(index, 1);
+  }
+
+  if (relationshipEditingId === relationshipId) {
+    resetRelationshipFormState();
+  }
+
+  renderAll();
+  saveToLocalStorage();
 }
 
 function renderRelationshipOptions() {
@@ -856,7 +985,8 @@ function updateRelationshipFieldLabels() {
     personBLabel.textContent = "Child";
     relationshipHint.textContent = "Direction matters: choose the parent first and the child second so family connectors stay grouped correctly.";
     relationshipHint.classList.add("offspring");
-    relationshipSubmitButton.textContent = "Add Parent -> Child Link";
+    relationshipSubmitButton.textContent = relationshipEditingId ? "Update Parent -> Child Link" : "Add Parent -> Child Link";
+    relationshipCancelButton.classList.toggle("hidden", !relationshipEditingId);
     customSymbolLabel.hidden = true;
     customSymbolInput.hidden = true;
     return;
@@ -866,7 +996,8 @@ function updateRelationshipFieldLabels() {
     personALabel.textContent = "Person A";
     personBLabel.textContent = "Person B";
     relationshipHint.textContent = "Choose two people, then enter the symbol you want displayed between them.";
-    relationshipSubmitButton.textContent = "Add Custom Relationship";
+    relationshipSubmitButton.textContent = relationshipEditingId ? "Update Custom Relationship" : "Add Custom Relationship";
+    relationshipCancelButton.classList.toggle("hidden", !relationshipEditingId);
     customSymbolLabel.hidden = false;
     customSymbolInput.hidden = false;
     return;
@@ -875,7 +1006,8 @@ function updateRelationshipFieldLabels() {
   personALabel.textContent = "Person A";
   personBLabel.textContent = "Person B";
   relationshipHint.textContent = "Choose two people and a relationship type.";
-  relationshipSubmitButton.textContent = "Add Relationship";
+  relationshipSubmitButton.textContent = relationshipEditingId ? "Update Relationship" : "Add Relationship";
+  relationshipCancelButton.classList.toggle("hidden", !relationshipEditingId);
   customSymbolLabel.hidden = true;
   customSymbolInput.hidden = true;
 }
@@ -1139,7 +1271,7 @@ function startDrag(event, personId, group) {
     return;
   }
 
-  if (!selectedPeopleIds.has(personId) || selectedPeopleIds.size > 1) {
+  if (!selectedPeopleIds.has(personId)) {
     selectedPeopleIds.clear();
     selectedPeopleIds.add(personId);
     renderChart();
@@ -1497,6 +1629,12 @@ function getRelationSymbolClass(relation) {
 }
 
 function getRelationshipKey(relation) {
+  if (relation.type === "offspring") {
+    const parentId = relation.parentId || relation.a;
+    const childId = relation.childId || relation.b;
+    return `${relation.type}:${parentId}|${childId}`;
+  }
+
   const left = relation.a < relation.b ? relation.a : relation.b;
   const right = relation.a < relation.b ? relation.b : relation.a;
   if (relation.type === "custom") {
@@ -1505,9 +1643,9 @@ function getRelationshipKey(relation) {
   return `${relation.type}:${left}|${right}`;
 }
 
-function hasDuplicateRelationship(candidate) {
+function hasDuplicateRelationship(candidate, ignoreRelationshipId = null) {
   const candidateKey = getRelationshipKey(candidate);
-  return relationships.some((relation) => getRelationshipKey(relation) === candidateKey);
+  return relationships.some((relation) => relation.id !== ignoreRelationshipId && getRelationshipKey(relation) === candidateKey);
 }
 
 function dedupeRelationshipsInPlace() {
@@ -1786,6 +1924,17 @@ function wireZoomControls() {
     canvasZoom = 1;
     applyCanvasZoom();
   });
+
+  if (selectAllButton) {
+    selectAllButton.addEventListener("click", () => {
+      selectedPeopleIds.clear();
+      for (const person of people) {
+        selectedPeopleIds.add(person.id);
+      }
+      renderChart();
+      showToast("All people selected.", "info");
+    });
+  }
 
   if (canvasWrap) {
     canvasWrap.addEventListener("wheel", (event) => {
