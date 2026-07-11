@@ -56,8 +56,8 @@ const symbolMap = {
   offspring: "\u2191\u2193",
 };
 
-const canvasWidth = 1200;
-const canvasHeight = 700;
+let canvasWidth = 1200;
+let canvasHeight = 700;
 const MIN_ZOOM = 0.65;
 const MAX_ZOOM = 2.2;
 const ZOOM_STEP = 0.15;
@@ -1076,7 +1076,30 @@ function updateRelationshipFieldLabels() {
   customSymbolInput.hidden = true;
 }
 
+function syncCanvasBounds() {
+  if (!canvasWrap) {
+    return;
+  }
+
+  const wrapRect = canvasWrap.getBoundingClientRect();
+  const nextWidth = Math.max(1200, Math.round(wrapRect.width));
+  const nextHeight = Math.max(700, canvasWrap.clientHeight, Math.round(window.innerHeight * 0.72));
+
+  if (nextWidth === canvasWidth && nextHeight === canvasHeight) {
+    return;
+  }
+
+  canvasWidth = nextWidth;
+  canvasHeight = nextHeight;
+
+  for (const person of people) {
+    person.x = clamp(person.x, 34, canvasWidth - 34);
+    person.y = clamp(person.y, 34, canvasHeight - 34);
+  }
+}
+
 function renderChart() {
+  syncCanvasBounds();
   clearSvg();
   pedigreeCanvas.setAttribute("viewBox", `0 0 ${canvasWidth} ${canvasHeight}`);
 
@@ -1977,6 +2000,7 @@ function setCanvasZoom(nextZoom, anchorEvent) {
 
 function wireZoomControls() {
   applyCanvasZoom();
+  syncCanvasBounds();
 
   if (!zoomOutButton || !zoomFitButton || !zoomInButton) {
     return;
@@ -2011,6 +2035,11 @@ function wireZoomControls() {
       setCanvasZoom(canvasZoom + direction * ZOOM_STEP, event);
     }, { passive: false });
   }
+
+  window.addEventListener("resize", () => {
+    syncCanvasBounds();
+    renderChart();
+  });
 }
 
 function wireTransferControls() {
