@@ -998,8 +998,21 @@ function deleteRelationship(relationshipId) {
 }
 
 function renderRelationshipOptions() {
+  const previousA = personAInput.value;
+  const previousB = personBInput.value;
+
   personAInput.innerHTML = "";
   personBInput.innerHTML = "";
+
+  const placeholderA = document.createElement("option");
+  placeholderA.value = "";
+  placeholderA.textContent = "-- Select --";
+  personAInput.appendChild(placeholderA);
+
+  const placeholderB = document.createElement("option");
+  placeholderB.value = "";
+  placeholderB.textContent = "-- Select --";
+  personBInput.appendChild(placeholderB);
 
   for (const person of people) {
     const label = `${person.name} (${person.sex})`;
@@ -1014,6 +1027,11 @@ function renderRelationshipOptions() {
     optionB.textContent = label;
     personBInput.appendChild(optionB);
   }
+
+  const hasOptionA = Array.from(personAInput.options).some((option) => option.value === previousA);
+  const hasOptionB = Array.from(personBInput.options).some((option) => option.value === previousB);
+  personAInput.value = hasOptionA ? previousA : "";
+  personBInput.value = hasOptionB ? previousB : "";
 
   relationshipForm.querySelector("button").disabled = people.length < 2;
   updateRelationshipFieldLabels();
