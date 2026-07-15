@@ -42,6 +42,7 @@ const zoomOutButton = document.getElementById("zoom-out");
 const zoomFitButton = document.getElementById("zoom-fit");
 const zoomInButton = document.getElementById("zoom-in");
 const zoomIndicator = document.getElementById("zoom-indicator");
+const canvasFocusToggleButton = document.getElementById("canvas-focus-toggle");
 const canvasWrap = document.getElementById("canvas-wrap");
 let toastHost = null;
 
@@ -88,6 +89,7 @@ let remoteErrorShown = false;
 let appInitialized = false;
 let currentUser = null;
 let relationshipEditingId = null;
+let isCanvasFocusMode = false;
 
 function isUnauthorizedResponse(response) {
   return response.status === 401 || response.status === 403;
@@ -353,6 +355,7 @@ async function initializeAppAfterLogin() {
     wireTransferControls();
     wireResetControl();
     wireZoomControls();
+    wireCanvasFocusControl();
     appInitialized = true;
   }
 
@@ -1974,6 +1977,36 @@ function applyCanvasZoom() {
   }
 }
 
+function updateCanvasFocusButtonLabel() {
+  if (!canvasFocusToggleButton) {
+    return;
+  }
+
+  canvasFocusToggleButton.textContent = isCanvasFocusMode ? "Exit Full Canvas" : "Use Full Canvas";
+}
+
+function setCanvasFocusMode(enabled) {
+  isCanvasFocusMode = !!enabled;
+  if (appShell) {
+    appShell.classList.toggle("canvas-focus", isCanvasFocusMode);
+  }
+
+  updateCanvasFocusButtonLabel();
+  syncCanvasBounds();
+  renderChart();
+}
+
+function wireCanvasFocusControl() {
+  updateCanvasFocusButtonLabel();
+  if (!canvasFocusToggleButton) {
+    return;
+  }
+
+  canvasFocusToggleButton.addEventListener("click", () => {
+    setCanvasFocusMode(!isCanvasFocusMode);
+  });
+}
+
 function setCanvasZoom(nextZoom, anchorEvent) {
   const previousZoom = canvasZoom;
   const clamped = clamp(nextZoom, MIN_ZOOM, MAX_ZOOM);
@@ -2243,6 +2276,12 @@ function deletePeopleByIds(ids, requireConfirm = true) {
 }
 
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && isCanvasFocusMode) {
+    event.preventDefault();
+    setCanvasFocusMode(false);
+    return;
+  }
+
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
     event.preventDefault();
     if (event.shiftKey) {
