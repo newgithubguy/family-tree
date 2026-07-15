@@ -662,7 +662,9 @@ function wireAuthControls() {
     void handleLoginSubmit(event);
   });
 
-  logoutButton.addEventListener("click", () => {
+  logoutButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     void performLogout(true);
   });
 
